@@ -12,14 +12,16 @@ from keras import layers, models
 class Network:
     def __init__(self, input_shape):
         self.model = models.Sequential()
-        self.model.add(layers.Dense(128, activation='relu'))
+        self.model.add(layers.Dense(input_shape=input_shape, units=128, activation='relu'))
         self.model.add(layers.Dense(64, activation='relu'))
-        self.model.add(layers.Dense(2, activation='softmax'))
-        self.model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+        self.model.add(layers.Dense(16, activation='relu'))
+        self.model.add(layers.Flatten())
+        self.model.add(layers.Dense(2, activation='exponential'))
+        self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['loss', 'accuracy'])
         self.history = None
 
     def train(self, x_train, y_train, epochs=100, batch_size=100):
-        self.history = self.model.fit(x=x_train, y=y_train, epochs=100, batch_size=100)
+        self.history = self.model.fit(x=x_train, y=y_train, epochs=epochs, batch_size=batch_size)
 
     def evaluate(self, x_test, y_test):
         loss, acc = self.model.evaluate(x_test, y_test)
@@ -31,6 +33,9 @@ class Network:
 
     def load_model(self, filepath):
         self.model = models.load_model(filepath)
+
+    def predict(self, audio_data):
+        return self.model.predict(audio_data, verbose=0)
 
 
 class Helper:
@@ -59,11 +64,13 @@ class Helper:
         min_len = math.inf
         needs_adjusting = False
 
+        path = os.path.join(os.path.pardir, path)
+
         for i in range(pos_size):
             filepath = os.path.join(path, f'positive/pos_{random.randint(1, 1000)}.mp3')
             try:
                 x, sr = librosa.load(filepath)
-                temp.append((x, 1))
+                temp.append((x, [0, 1]))
                 if len(x) < min_len:
                     min_len = len(x)
                     needs_adjusting = True
@@ -76,7 +83,7 @@ class Helper:
 
         for i in range(neg_size):
             x, sr = librosa.load(os.path.join(path, f'negative/neg_{random.randint(1, 1000)}.mp3'))
-            temp.append((x, 0))
+            temp.append((x, [1, 0]))
             if len(x) < min_len:
                 min_len = len(x)
                 needs_adjusting = True
@@ -87,6 +94,7 @@ class Helper:
             temp = Helper.trim_data(temp, min_len)
 
         random.shuffle(temp)
+        print(f'Length of the specimen should be {len(temp[0][0])}')
         if mel_spectrogram:
             temp = Helper.convert_to_mel_spectrograms(temp)
         train_size = int(len(temp) * train_to_test_ratio)
@@ -101,4 +109,6 @@ class Helper:
         for element in data:
             x.append(element[0])
             y.append(element[1])
-        return np.array(x), np.array(y)
+        x = np.array(x)
+        y = np.array(y)
+        return x, y

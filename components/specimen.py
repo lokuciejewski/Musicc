@@ -1,3 +1,4 @@
+import os
 import random
 
 import librosa
@@ -56,33 +57,42 @@ class Evolution:
     crossover_chance = 0.0
     target = None
 
-    def __init__(self, number_of_specimen, specimen_length, target, mutation_chance, crossover_chance, feature=None):
+    def __init__(self, neural_network, number_of_specimen, specimen_length, target, mutation_chance, crossover_chance,
+                 feature=None):
+        self.neural_network = neural_network
         self.mutation_chance = mutation_chance
         self.crossover_chance = crossover_chance
         self.target = target
+        self.fitnesses = []
         for i in range(number_of_specimen):
             specimen = Specimen(specimen_length)
-            specimen.set_fitness(self.calculate_fitness(specimen, feature))
             self.specimens.append(specimen)
             print(f'Generated {i} specimen of {number_of_specimen}')
-        self.specimens.sort(key=lambda x: x.fitness)
+        self.calculate_all_fitnesses()
+        for i in range(number_of_specimen):
+            self.specimens[i].set_fitness(self.fitnesses[i][1])
+        self.specimens.sort(key=lambda x: -x.fitness)
 
-    def calculate_fitness(self, specimen, feature=librosa.stft):
-        if feature is None:
-            return abs(np.average(1 - cdist(librosa.stft(specimen.features), self.target)))
-        else:
-            # Here the NN should calculate the fitness
-            return 100
+    def calculate_all_fitnesses(self):
+        features = []
+        for specimen in self.specimens:
+            features.append(librosa.feature.melspectrogram(specimen.features))
+        print('Started fitness calculation')
+        self.fitnesses = self.neural_network.predict(np.array(features))
+        print('Finished fitness calculation')
+
+    def calculate_fitness(self, specimen):
+        result = self.neural_network.predict(librosa.feature.melspectrogram(y=specimen.features))
+        return result[1]
 
     def select_n_best(self, n):
-        self.specimens.sort(key=lambda x: x.fitness)
         return self.specimens[:n]
 
     def select_random(self):
         return self.specimens[random.randint(0, len(self.specimens) - 1)]
 
     def run_epochs(self, number_of_epochs, save=False, sr=22050):
-        best = 100000
+        best = -np.math.inf
         for i in range(number_of_epochs):
             print(f'Started epoch {i}')
             n = 2 * int(len(self.specimens) / 10)
@@ -103,12 +113,13 @@ class Evolution:
                     new_specimens.append(father)
                     new_specimens.append(mother)
             self.specimens = new_specimens
-            for specimen in self.specimens:
-                specimen.set_fitness(self.calculate_fitness(specimen))
-            self.specimens.sort(key=lambda x: x.fitness)
+            self.calculate_all_fitnesses()
+            for specimen in range(len(self.specimens)):
+                self.specimens[specimen].set_fitness(self.fitnesses[specimen][1])
+            self.specimens.sort(key=lambda x: -x.fitness)
             print(f'Best fitness: {self.specimens[0].fitness}')
             print(f'Worst fitness: {self.specimens[-1].fitness}')
-            if save:  # and best > self.specimens[0].fitness:
-                sf.write(f'data/negative/epoch-{i}-fitness-{self.specimens[0].fitness}.wav',
+            if save and best < self.specimens[0].fitness:
+                sf.write(os.path.join(os.path.pardir, f'data/generated/epoch-{i}-fitness-{self.specimens[0].fitness}.wav'),
                          self.specimens[0].features, sr)
                 best = self.specimens[0].fitness
