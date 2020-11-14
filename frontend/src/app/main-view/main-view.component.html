@@ -1,1 +1,36 @@
-<p>main-view works!</p>
+<mat-toolbar color="primary"
+  >Application for automatic music composition</mat-toolbar
+>
+<mat-card>
+  <mat-card>
+    <mat-toolbar color="primary">Music generation</mat-toolbar>
+    <button mat-raised-button style="margin: 1em">Generate</button>
+    <mat-form-field>
+      <mat-label>Song title</mat-label>
+      <input matInput type="text" />
+    </mat-form-field>
+    <table>
+      <td>
+        <mat-slider matTooltip="Tempo importance" vertical="true"></mat-slider>
+      </td>
+      <td>
+        <mat-slider matTooltip="Mel spectrogram similarity importance" vertical="true"></mat-slider>
+      </td>
+    </table>
+  </mat-card>
+  <mat-card>
+    <mat-toolbar color="primary">Audio player</mat-toolbar>
+    <ngx-audio-player
+      [playlist]="playlist"
+      [displayTitle]="displayTitle"
+      [autoPlay]="false"
+      muted="muted"
+      [displayPlaylist]="displayPlayList"
+      [pageSizeOptions]="pageSizeOptions"
+      (trackEnded)="onEnded($event)"
+      [displayVolumeControls]="displayVolumeControls"
+      [disablePositionSlider]="disablePositionSlider"
+      [expanded]="true"
+    ></ngx-audio-player>
+  </mat-card>
+</mat-card>

@@ -85,7 +85,10 @@ class Evolution:
         for i, network in enumerate(self.neural_networks):
             temp.append(network.predict(np.array(features[i])))
         for specimen in range(len(self.specimens)):
-            self.fitnesses[specimen] = np.avg([feature[specimen] for feature in temp])
+            self.fitnesses[specimen] = \
+                min([temp[prediction][specimen][1] for prediction in range(len(
+                    self.features_list))])  # 1 because list [0, 1] represents max similarity, [1, 0] represents min
+            # similarity
         print('Finished fitness calculation')
 
     def select_n_best(self, n):
@@ -109,13 +112,13 @@ class Evolution:
                 mother = self.select_random()
                 if random.random() < self.crossover_chance:
                     kid_1, kid_2 = father.crossover(mother)
-                    kid_1.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
-                    kid_2.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
+                    kid_1.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
+                    kid_2.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
                     new_specimens.append(kid_1)
                     new_specimens.append(kid_2)
                 else:
-                    father.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
-                    mother.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
+                    father.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
+                    mother.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
                     new_specimens.append(father)
                     new_specimens.append(mother)
             self.specimens = new_specimens

@@ -4,15 +4,32 @@ import { NgModule } from '@angular/core';
 import { AppComponent } from './app.component';
 import { MainViewComponent } from './main-view/main-view.component';
 
+import { NgxAudioPlayerModule } from 'ngx-audio-player';
+
+import { MatCardModule } from '@angular/material/card';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatSliderModule } from '@angular/material/slider';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
 @NgModule({
-  declarations: [
-    AppComponent,
-    MainViewComponent
-  ],
+  declarations: [AppComponent, MainViewComponent],
   imports: [
-    BrowserModule
+    BrowserModule,
+    NgxAudioPlayerModule,
+    BrowserAnimationsModule,
+    MatCardModule,
+    MatToolbarModule,
+    MatButtonModule,
+    MatInputModule,
+    MatSliderModule,
+    MatDividerModule,
+    MatTooltipModule,
   ],
   providers: [],
-  bootstrap: [AppComponent]
+  bootstrap: [AppComponent],
 })
-export class AppModule { }
+export class AppModule {}
