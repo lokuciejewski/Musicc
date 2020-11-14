@@ -3,7 +3,6 @@ import random
 
 import librosa
 import numpy as np
-from scipy.spatial.distance import cdist
 import soundfile as sf
 
 
@@ -22,12 +21,14 @@ class Specimen:
         self.fitness = 100000
 
     def generate_features(self):
-        return np.random.rand(self.length)
+        return np.random.rand(self.length) * np.random.choice([-1, 1], self.length)
 
     def mutate(self, mutation_chance=0.001):
+        mu = np.mean(self.features)
+        sigma = np.std(self.features)
         for i, row in enumerate(self.features):
             if mutation_chance > random.random():
-                self.features[i] = -self.features[i]
+                self.features[i] += random.gauss(mu=mu, sigma=sigma)
 
     def crossover(self, partner, cuts=100):
         cuts_ind = []
@@ -57,33 +58,35 @@ class Evolution:
     crossover_chance = 0.0
     target = None
 
-    def __init__(self, neural_network, number_of_specimen, specimen_length, target, mutation_chance, crossover_chance,
-                 feature=None):
-        self.neural_network = neural_network
+    def __init__(self, neural_networks, number_of_specimen, specimen_length, target, mutation_chance, crossover_chance,
+                 features_list):
+        self.neural_networks = neural_networks
         self.mutation_chance = mutation_chance
         self.crossover_chance = crossover_chance
         self.target = target
-        self.fitnesses = []
+        self.fitnesses = [0 for i in range(number_of_specimen)]
+        self.features_list = features_list
         for i in range(number_of_specimen):
             specimen = Specimen(specimen_length)
             self.specimens.append(specimen)
-            print(f'Generated {i} specimen of {number_of_specimen}')
+            print(f'Generated {i} specimen of {number_of_specimen}', end='\r')
         self.calculate_all_fitnesses()
         for i in range(number_of_specimen):
-            self.specimens[i].set_fitness(self.fitnesses[i][1])
+            self.specimens[i].set_fitness(self.fitnesses[i])
         self.specimens.sort(key=lambda x: -x.fitness)
 
     def calculate_all_fitnesses(self):
-        features = []
+        features = [[] for feature in self.features_list]
         for specimen in self.specimens:
-            features.append(librosa.feature.melspectrogram(specimen.features))
+            for i, feature in enumerate(self.features_list):
+                features[i].append(feature(specimen.features))
         print('Started fitness calculation')
-        self.fitnesses = self.neural_network.predict(np.array(features))
+        temp = []
+        for i, network in enumerate(self.neural_networks):
+            temp.append(network.predict(np.array(features[i])))
+        for specimen in range(len(self.specimens)):
+            self.fitnesses[specimen] = np.avg([feature[specimen] for feature in temp])
         print('Finished fitness calculation')
-
-    def calculate_fitness(self, specimen):
-        result = self.neural_network.predict(librosa.feature.melspectrogram(y=specimen.features))
-        return result[1]
 
     def select_n_best(self, n):
         return self.specimens[:n]
@@ -91,35 +94,47 @@ class Evolution:
     def select_random(self):
         return self.specimens[random.randint(0, len(self.specimens) - 1)]
 
-    def run_epochs(self, number_of_epochs, save=False, sr=22050):
+    def run_epochs(self, number_of_epochs, decreasing_mutation_factor=0.1, save=False, sr=22050, save_as_negative=False,
+                   epsilon=0.1):
         best = -np.math.inf
-        for i in range(number_of_epochs):
+        specimen_count = len(self.specimens)
+        for i in range(1, number_of_epochs + 1):
             print(f'Started epoch {i}')
-            n = 2 * int(len(self.specimens) / 10)
+            n = 2 * int(len(self.specimens) / 5)
             new_specimens = self.select_n_best(n)
-            for j in range(int((len(self.specimens) - n) / 2)):
-                print(f'Started complementary specimens {2 * j + n} & {2 * j + n + 1}/{len(self.specimens)}')
+            random.shuffle(new_specimens)
+            while len(new_specimens) != specimen_count:
+                print(f'Started specimen {len(new_specimens)}/{specimen_count}', end='\r')
                 father = self.select_random()
                 mother = self.select_random()
                 if random.random() < self.crossover_chance:
                     kid_1, kid_2 = father.crossover(mother)
-                    kid_1.mutate(mutation_chance=self.mutation_chance)
-                    kid_2.mutate(mutation_chance=self.mutation_chance)
+                    kid_1.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
+                    kid_2.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
                     new_specimens.append(kid_1)
                     new_specimens.append(kid_2)
                 else:
-                    father.mutate(mutation_chance=self.mutation_chance)
-                    mother.mutate(mutation_chance=self.mutation_chance)
+                    father.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
+                    mother.mutate(mutation_chance=self.mutation_chance*(i**-decreasing_mutation_factor))
                     new_specimens.append(father)
                     new_specimens.append(mother)
             self.specimens = new_specimens
             self.calculate_all_fitnesses()
             for specimen in range(len(self.specimens)):
-                self.specimens[specimen].set_fitness(self.fitnesses[specimen][1])
+                self.specimens[specimen].set_fitness(self.fitnesses[specimen])
             self.specimens.sort(key=lambda x: -x.fitness)
             print(f'Best fitness: {self.specimens[0].fitness}')
             print(f'Worst fitness: {self.specimens[-1].fitness}')
-            if save and best < self.specimens[0].fitness:
-                sf.write(os.path.join(os.path.pardir, f'data/generated/epoch-{i}-fitness-{self.specimens[0].fitness}.wav'),
+            if save_as_negative:
+                file_count = len(next(os.walk(os.path.join(os.path.pardir, 'data/negative/')))[2])
+                for specimen in self.specimens:
+                    if abs(specimen.fitness - 1) <= epsilon:
+                        file_count += 1
+                        sf.write(os.path.join(os.path.pardir, f'data/negative/neg_{file_count}.wav'),
+                                 specimen.features, sr)
+                        print(f'Saved file: neg_{file_count}.wav')
+            if save and best <= self.specimens[0].fitness:
+                sf.write(os.path.join(os.path.pardir,
+                                      f'data/generated/epoch-{i}-fitness-{self.specimens[0].fitness}.wav'),
                          self.specimens[0].features, sr)
                 best = self.specimens[0].fitness
