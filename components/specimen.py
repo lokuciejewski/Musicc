@@ -103,7 +103,7 @@ class Evolution:
         specimen_count = len(self.specimens)
         for i in range(1, number_of_epochs + 1):
             print(f'Started epoch {i}')
-            n = 2 * int(len(self.specimens) / 5)
+            n = 2 * int(len(self.specimens) / 20)
             new_specimens = self.select_n_best(n)
             random.shuffle(new_specimens)
             while len(new_specimens) != specimen_count:
