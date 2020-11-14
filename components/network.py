@@ -48,17 +48,10 @@ class Helper:
         return data
 
     @staticmethod
-    def convert_to_mel_spectrograms(data_list):
+    def convert_to_feature(data_list, feature):
         result = []
         for element in data_list:
-            result.append((librosa.feature.melspectrogram(y=element[0]), element[1]))
-        return result
-
-    @staticmethod
-    def convert_to_tempogram(data_list):
-        result = []
-        for element in data_list:
-            result.append((librosa.feature.tempogram(y=element[0]), element[1]))
+            result.append((feature(y=element[0]), element[1]))
         return result
 
     @staticmethod
@@ -73,7 +66,7 @@ class Helper:
         return train, test
 
     @staticmethod
-    def get_positives(number_of_samples=1000, path='data/positive/', mel_spectrogram=True, verbose=True):
+    def get_positives(number_of_samples=1000, path='data/positive/', feature=None, verbose=True):
         positives = []
 
         path = os.path.join(os.path.pardir, path)
@@ -99,12 +92,12 @@ class Helper:
             positives = Helper.trim_data(positives, min_len)
         random.shuffle(positives)
         print(f'Length of the specimen should be {len(positives[0][0])}')
-        if mel_spectrogram:
-            positives = Helper.convert_to_mel_spectrograms(positives)
+        if feature is not None:
+            positives = Helper.convert_to_feature(positives, feature)
         return positives
 
     @staticmethod
-    def get_negatives(number_of_samples=1000, sample_length=None, path='data/negative/', mel_spectrogram=True,
+    def get_negatives(number_of_samples=1000, sample_length=None, path='data/negative/', feature=None,
                       verbose=True):
         negatives = []
 
@@ -136,8 +129,8 @@ class Helper:
             negatives = Helper.trim_data(negatives, sample_length)
         random.shuffle(negatives)
         print(f'Length of the specimen should be {len(negatives[0][0])}')
-        if mel_spectrogram:
-            negatives = Helper.convert_to_mel_spectrograms(negatives)
+        if feature is not None:
+            negatives = Helper.convert_to_feature(negatives, feature)
         return negatives
 
     @staticmethod

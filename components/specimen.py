@@ -24,11 +24,20 @@ class Specimen:
         return np.random.rand(self.length) * np.random.choice([-1, 1], self.length)
 
     def mutate(self, mutation_chance=0.001):
-        mu = np.mean(self.features)
-        sigma = np.std(self.features)
+        # instead of going through ALL genes I could just randomly choose X,
+        # where X is the len(genotype)/mutation_chance and then mutate them, SHOULD be faster?
+        # mu = np.mean(self.features)
+        # sigma = np.std(self.features)
+        genes_for_mutation = []
+        for i in range(int(len(self.features)/mutation_chance)):
+            genes_for_mutation.append(random.randint(0, len(self.features)))
+        for gene in genes_for_mutation:
+            self.features[gene] = np.average([self.features[gene], self.features[gene - 1]])
+        """    
         for i, row in enumerate(self.features):
             if mutation_chance > random.random():
-                self.features[i] += random.gauss(mu=mu, sigma=sigma)
+                self.features[i] = np.average([self.features[i], self.features[i - 1]])
+                # self.features[i] += random.gauss(mu=mu, sigma=sigma)"""
 
     def crossover(self, partner, cuts=100):
         cuts_ind = []
@@ -76,11 +85,11 @@ class Evolution:
         self.specimens.sort(key=lambda x: -x.fitness)
 
     def calculate_all_fitnesses(self):
+        print('Started fitness calculation')
         features = [[] for feature in self.features_list]
         for specimen in self.specimens:
             for i, feature in enumerate(self.features_list):
                 features[i].append(feature(specimen.features))
-        print('Started fitness calculation')
         temp = []
         for i, network in enumerate(self.neural_networks):
             temp.append(network.predict(np.array(features[i])))
@@ -105,7 +114,6 @@ class Evolution:
             print(f'Started epoch {i}')
             n = 2 * int(len(self.specimens) / 20)
             new_specimens = self.select_n_best(n)
-            random.shuffle(new_specimens)
             while len(new_specimens) != specimen_count:
                 print(f'Started specimen {len(new_specimens)}/{specimen_count}', end='\r')
                 father = self.select_random()
