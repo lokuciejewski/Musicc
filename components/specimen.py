@@ -22,13 +22,13 @@ class Specimen:
         self.fitness = 100000
 
     def generate_features(self):
-        return np.random.rand(self.length) * np.random.choice([-1, 1], self.length)
+        return np.random.rand(self.length) * np.random.uniform(-0.1, 0.1, self.length)
 
     def mutate(self, mutation_chance=0.001):
         # instead of going through ALL genes I could just randomly choose X,
         # where X is the len(genotype)/mutation_chance and then mutate them, SHOULD be faster?
-        #mu = np.mean(self.features)
-        #sigma = np.std(self.features)
+        mu = float(np.mean(self.features))
+        sigma = float(np.std(self.features))
 
         number_of_genes = int(len(self.features)*mutation_chance)
         for i in range(number_of_genes):
@@ -36,9 +36,9 @@ class Specimen:
             if gene % 3 == 1:
                 self.features[gene] = np.average([self.features[gene], self.features[gene - 1]])
             elif gene % 3 == 2:
-                self.features[gene] = -self.features[gene]
+                self.features[gene] *= -1
             else:
-                self.features[gene] = random.uniform(-1, 1)
+                self.features[gene] += random.gauss(mu=mu, sigma=sigma)
         # Not sure if this is ok, maybe there are better ways to mutate
         """
         for i, row in enumerate(self.features):
@@ -113,7 +113,8 @@ class Evolution:
                  # 1 because list [0, 1] represents max similarity, [1, 0] represents min
             # similarity
 
-            print(f'Average fitness for the specimen {specimen} was: {average_fitness} while min was: {min_fitness}')
+            print(f'Specimen got marks: '
+                  f'{[temp[prediction][specimen][1] for prediction in range(len(self.features_list))]}')
         print('Finished fitness calculation')
 
     def select_n_best(self, n):
