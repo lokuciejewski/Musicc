@@ -1,4 +1,7 @@
-data/
+data/generated
+data/positive
+data/negative
 .idea/
 .git/
 frontend/node_modules
+__pycache__

@@ -30,15 +30,11 @@ class Specimen:
         mu = float(np.mean(self.features))
         sigma = float(np.std(self.features))
 
-        number_of_genes = int(len(self.features)*mutation_chance)
+        number_of_genes = int(len(self.features) * mutation_chance)
         for i in range(number_of_genes):
             gene = random.randint(0, len(self.features) - 1)
-            if gene % 3 == 1:
-                self.features[gene] = np.average([self.features[gene], self.features[gene - 1]])
-            elif gene % 3 == 2:
-                self.features[gene] *= -1
-            else:
-                self.features[gene] += random.gauss(mu=mu, sigma=sigma)
+            self.features[gene] = np.average([self.features[gene], self.features[gene - 1]])
+            self.features[gene] += random.gauss(mu=mu, sigma=sigma)
         # Not sure if this is ok, maybe there are better ways to mutate
         """
         for i, row in enumerate(self.features):
@@ -72,14 +68,12 @@ class Evolution:
     specimens = []
     mutation_chance = 0.0
     crossover_chance = 0.0
-    target = None
 
-    def __init__(self, neural_networks, number_of_specimen, specimen_length, target, mutation_chance, crossover_chance,
+    def __init__(self, neural_networks, number_of_specimen, specimen_length, mutation_chance, crossover_chance,
                  features_list):
         self.neural_networks = neural_networks
         self.mutation_chance = mutation_chance
         self.crossover_chance = crossover_chance
-        self.target = target
         self.fitnesses = [0 for i in range(number_of_specimen)]
         self.features_list = features_list
         for i in range(number_of_specimen):
@@ -92,13 +86,13 @@ class Evolution:
         self.specimens.sort(key=lambda x: -x.fitness)
 
     def calculate_all_fitnesses(self):
-        print('Started fitness calculation --------------------')
+        print('Started fitness calculation')
         features = [[] for feature in self.features_list]
-        print('Started specimen conversion                    |')
+        print('Started specimen conversion')
         for specimen in self.specimens:
             for i, feature in enumerate(self.features_list):
                 features[i].append(feature(specimen.features))
-        print('Finished specimen conversion                   v')
+        print('Finished specimen conversion')
         temp = []
         for i, network in enumerate(self.neural_networks):
             start = time.time()
@@ -106,15 +100,12 @@ class Evolution:
             stop = time.time()
             print(f'Finished network {i + 1}/{len(self.neural_networks)} in {stop - start}s')
         for specimen in range(len(self.specimens)):
-            min_fitness =  min([temp[prediction][specimen][1] for prediction in range(len(self.features_list))])
+            # min_fitness = min([temp[prediction][specimen][1] for prediction in range(len(self.features_list))])
             average_fitness = np.average([temp[prediction][specimen][1]
                                           for prediction in range(len(self.features_list))])
             self.fitnesses[specimen] = average_fitness
-                 # 1 because list [0, 1] represents max similarity, [1, 0] represents min
+            # 1 because list [0, 1] represents max similarity, [1, 0] represents min
             # similarity
-
-            print(f'Specimen got marks: '
-                  f'{[temp[prediction][specimen][1] for prediction in range(len(self.features_list))]}')
         print('Finished fitness calculation')
 
     def select_n_best(self, n):
