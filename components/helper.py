@@ -2,6 +2,7 @@ import math
 import os
 import random
 import multiprocessing as mp
+import time
 from multiprocessing import Pool as ThreadPool
 
 import librosa
@@ -20,10 +21,12 @@ class Helper:
     @staticmethod
     def get_data_list_of_feature(feature, data_list):
         print(f'Started feature: {feature}')
+        start = time.time()
         x, y = list(zip(*data_list))
         pool = ThreadPool(mp.cpu_count())
-        result = pool.map(feature, x)
-        print(f'Finished feature: {feature}')
+        result = pool.map_async(feature, x).get()
+        stop = time.time()
+        print(f'Finished feature: {feature} in {stop - start}s')
         return list(zip(result, y))
 
     @staticmethod
@@ -45,14 +48,14 @@ class Helper:
         return train, test
 
     @staticmethod
-    def get_positives(number_of_samples=1000, path='data/positive/', feature=None, verbose=True):
+    def get_positives(range_of_samples=range(1, 1000), sample_length=None, path='data/positive/', feature=None, verbose=True):
         positives = []
 
         path = os.path.join(os.path.pardir, path)
         needs_adjusting = False
         min_len = math.inf
 
-        for i in range(1, number_of_samples + 1):
+        for i in range_of_samples:
             filepath = os.path.join(path, f'pos ({i}).mp3')
             try:
                 x, sr = librosa.load(filepath)
@@ -61,7 +64,7 @@ class Helper:
                     min_len = len(x)
                     needs_adjusting = True
                 if verbose:
-                    print(f'Finished positive example {i}/{number_of_samples}', end='\r')
+                    print(f'Finished positive example {i}/{len(range_of_samples)}', end='\r')
             except RuntimeError:
                 print(f'File: {filepath} is corrupted or contains data in an unknown format!')
                 i = i - 1
@@ -69,6 +72,8 @@ class Helper:
 
         if needs_adjusting:
             positives = Helper.trim_data(positives, min_len)
+        if sample_length is not None:
+            positives = Helper.trim_data(positives, sample_length)
         random.shuffle(positives)
         print(f'Length of the specimen should be {len(positives[0][0])}')
         if feature is not None:

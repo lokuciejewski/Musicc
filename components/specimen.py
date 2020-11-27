@@ -1,10 +1,12 @@
+import math
+import multiprocessing as mp
 import os
 import random
 import time
 
-import librosa
 import numpy as np
 import soundfile as sf
+from pathos.multiprocessing import ProcessPool as Pool
 
 
 class Specimen:
@@ -19,10 +21,10 @@ class Specimen:
         else:
             self.features = features
             self.length = len(features)
-        self.fitness = 100000
+        self.fitness = math.inf
 
     def generate_features(self):
-        return np.random.rand(self.length) * np.random.uniform(-0.1, 0.1, self.length)
+        return np.random.uniform(-0.1, 0.1, self.length)
 
     def mutate(self, mutation_chance=0.001):
         # instead of going through ALL genes I could just randomly choose X,
@@ -42,7 +44,7 @@ class Specimen:
                 self.features[i] = np.average([self.features[i], self.features[i - 1]])
                 self.features[i] += random.gauss(mu=mu, sigma=sigma)"""
 
-    def crossover(self, partner, cuts=100):
+    def crossover(self, partner, cuts=100):  # lepiej uniform crossover?
         cuts_ind = []
         for i in range(cuts):
             x = random.randint(1, self.features.shape[0] - 1)
@@ -65,9 +67,6 @@ class Specimen:
 
 
 class Evolution:
-    specimens = []
-    mutation_chance = 0.0
-    crossover_chance = 0.0
 
     def __init__(self, neural_networks, number_of_specimen, specimen_length, mutation_chance, crossover_chance,
                  features_list):
@@ -76,19 +75,21 @@ class Evolution:
         self.crossover_chance = crossover_chance
         self.fitnesses = [0 for i in range(number_of_specimen)]
         self.features_list = features_list
+        self.specimens = []
         for i in range(number_of_specimen):
             specimen = Specimen(specimen_length)
             self.specimens.append(specimen)
-            print(f'Generated {i} specimen of {number_of_specimen}', end='\r')
+            print(f'Generated {i + 1} specimen of {number_of_specimen}', end='\r')
         self.calculate_all_fitnesses()
         for i in range(number_of_specimen):
             self.specimens[i].set_fitness(self.fitnesses[i])
         self.specimens.sort(key=lambda x: -x.fitness)
 
     def calculate_all_fitnesses(self):
-        print('Started fitness calculation')
+        print('\nStarted fitness calculation')
         features = [[] for feature in self.features_list]
         print('Started specimen conversion')
+        # TODO: make this parallel
         for specimen in self.specimens:
             for i, feature in enumerate(self.features_list):
                 features[i].append(feature(specimen.features))
@@ -111,8 +112,36 @@ class Evolution:
     def select_n_best(self, n):
         return self.specimens[:n]
 
-    def select_random(self):
-        return self.specimens[random.randint(0, len(self.specimens) - 1)]
+    def inject_specimen(self, specimen, index):
+        self.specimens[index] = specimen
+
+    def create_offsprings(self, epoch_number, decreasing_mutation_factor):
+        father = random.choice(self.specimens)
+        mother = random.choice(self.specimens)
+        if random.random() < self.crossover_chance:
+            first_offspring, second_offspring = father.crossover(mother)
+            first_offspring.mutate(mutation_chance=self.mutation_chance * (epoch_number ** -decreasing_mutation_factor))
+            second_offspring.mutate(
+                mutation_chance=self.mutation_chance * (epoch_number ** -decreasing_mutation_factor))
+            return first_offspring, second_offspring
+        else:
+            father.mutate(mutation_chance=self.mutation_chance * (epoch_number ** -decreasing_mutation_factor))
+            mother.mutate(mutation_chance=self.mutation_chance * (epoch_number ** -decreasing_mutation_factor))
+            return father, mother
+
+    @staticmethod
+    def create_n_offsprings(n, specimens, crossover_chance, mutation_chance, current_epoch, decreasing_mutation_factor):
+        result = []
+        while len(result) != n:
+            if random.random() < crossover_chance:
+                father = random.choice(specimens)
+                mother = random.choice(specimens)
+                specimen, _ = father.crossover(mother)
+            else:
+                specimen = random.choice(specimens)
+            specimen.mutate(mutation_chance * (current_epoch ** -decreasing_mutation_factor))
+            result.append(specimen)
+        return result
 
     def run_epochs(self, number_of_epochs, decreasing_mutation_factor=0.1, save=False, sr=22050, save_as_negative=False,
                    epsilon=0.1):
@@ -120,23 +149,28 @@ class Evolution:
         specimen_count = len(self.specimens)
         for i in range(1, number_of_epochs + 1):
             print(f'Started epoch {i}')
-            n = 2 * int(len(self.specimens) / 20)
+            n = 2 * int(specimen_count / 20)
             new_specimens = self.select_n_best(n)
+            missing_specimen = specimen_count - n
+            print('Creating new specimens.', end='')
+            pool = Pool(mp.cpu_count())
+            result = pool.amap(Evolution.create_n_offsprings, [missing_specimen], [self.specimens],
+                               [self.crossover_chance],
+                               [self.mutation_chance], [i], [decreasing_mutation_factor])
+            while not result.ready():
+                print('.', end='')
+                time.sleep(1)
+            result = result.get()
+            new_specimens.extend(result[0])
+            '''
             while len(new_specimens) != specimen_count:
                 print(f'Started specimen {len(new_specimens)}/{specimen_count}', end='\r')
-                father = self.select_random()
-                mother = self.select_random()
-                if random.random() < self.crossover_chance:
-                    kid_1, kid_2 = father.crossover(mother)
-                    kid_1.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
-                    kid_2.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
-                    new_specimens.append(kid_1)
-                    new_specimens.append(kid_2)
-                else:
-                    father.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
-                    mother.mutate(mutation_chance=self.mutation_chance * (i ** -decreasing_mutation_factor))
-                    new_specimens.append(father)
-                    new_specimens.append(mother)
+                offspring_1, offspring_2 = self.create_offsprings(i, decreasing_mutation_factor)
+                new_specimens.append(offspring_1)
+                new_specimens.append(offspring_2)
+            '''
+            print('\r', end='')
+            print('\nFinished all specimens', end='')
             self.specimens = new_specimens
             self.calculate_all_fitnesses()
             for specimen in range(len(self.specimens)):

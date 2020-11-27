@@ -16,10 +16,10 @@ class Musicc:
         self.negative_examples = None
         self.load_positive_examples(number_of_samples, force_new_positives, filepath)
         self.load_negative_examples(number_of_samples, sample_length)
-        self.train_set = None
-        self.test_set = None
-        self.load_train_test()
         self.features = features
+        self.train_set = [[] for feature in features]
+        self.test_set = [[] for feature in features]
+        self.load_train_test()
         self.networks = []
         if load_networks:
             self.load_networks()
@@ -43,8 +43,9 @@ class Musicc:
         self.negative_examples = Helper.get_negatives(number_of_samples, sample_length)
 
     def load_train_test(self):
-        self.train_set, self.test_set = Helper.prepare_dataset(self.positive_examples, self.negative_examples,
-                                                               train_to_test_ratio=0.8)
+        for i in range(len(self.features)):
+            self.train_set[i], self.test_set[i] = Helper.prepare_dataset(self.positive_examples, self.negative_examples,
+                                                                         train_to_test_ratio=0.8)
 
     def load_networks(self):
         self.networks.clear()
@@ -56,7 +57,7 @@ class Musicc:
 
     def save_networks(self):
         for i, network in enumerate(self.networks):
-            feature_name = str(self.features[i]).split(' ')[2]
+            feature_name = str(self.features[0][i]).split(' ')[2]
             network.save_model(os.path.join(os.path.pardir, f'models/model_{feature_name}'))
 
     def create_networks(self):
@@ -66,9 +67,10 @@ class Musicc:
             self.networks.append(network)
 
     def train_networks(self, epochs, batch_size):
-        for network in self.networks:
-            network.train(x_train=self.train_set[0], y_train=self.train_set[1], epochs=epochs, batch_size=batch_size)
-            network.evaluate(x_test=self.test_set[0], y_test=self.test_set[1])
+        for i, network in enumerate(self.networks):
+            network.train(x_train=self.train_set[i][0], y_train=self.train_set[i][1], epochs=epochs,
+                          batch_size=batch_size)
+            network.evaluate(x_test=self.test_set[i][0], y_test=self.test_set[i][1])
 
     def run_evolution(self, number_of_epochs, decreasing_mutation_factor=0.1, save=False, sr=22050,
                       save_as_negative=False, epsilon=0.1):
