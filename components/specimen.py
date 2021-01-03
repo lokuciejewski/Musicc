@@ -36,7 +36,7 @@ class Specimen:
         for i in range(number_of_genes):
             gene = random.randint(0, len(self.features) - 1)
             self.features[gene] = np.average([self.features[gene], self.features[gene - 1]])
-            self.features[gene] += random.gauss(mu=mu, sigma=sigma)
+            self.features[gene] += random.gauss(mu=mu, sigma=sigma) * 0.01
         # Not sure if this is ok, maybe there are better ways to mutate
         """
         for i, row in enumerate(self.features):
@@ -115,11 +115,11 @@ class Evolution:
     def inject_specimen(self, specimen, index):
         self.specimens[index] = specimen
 
-    def create_offsprings(self, epoch_number, decreasing_mutation_factor):
+    def create_offsprings(self, new_specimens, epoch_number, decreasing_mutation_factor):
         father = random.choice(self.specimens)
-        mother = random.choice(self.specimens)
+        mother = random.choice(new_specimens)
         if random.random() < self.crossover_chance:
-            first_offspring, second_offspring = father.crossover(mother)
+            first_offspring, second_offspring = father.crossover(mother, cuts=3)
             first_offspring.mutate(mutation_chance=self.mutation_chance * (epoch_number ** -decreasing_mutation_factor))
             second_offspring.mutate(
                 mutation_chance=self.mutation_chance * (epoch_number ** -decreasing_mutation_factor))
@@ -151,6 +151,7 @@ class Evolution:
             print(f'Started epoch {i}')
             n = 2 * int(specimen_count / 20)
             new_specimens = self.select_n_best(n)
+            '''
             missing_specimen = specimen_count - n
             print('Creating new specimens.', end='')
             pool = Pool(mp.cpu_count())
@@ -165,10 +166,10 @@ class Evolution:
             '''
             while len(new_specimens) != specimen_count:
                 print(f'Started specimen {len(new_specimens)}/{specimen_count}', end='\r')
-                offspring_1, offspring_2 = self.create_offsprings(i, decreasing_mutation_factor)
+                offspring_1, offspring_2 = self.create_offsprings(new_specimens, i, decreasing_mutation_factor)
                 new_specimens.append(offspring_1)
                 new_specimens.append(offspring_2)
-            '''
+
             print('\r', end='')
             print('\nFinished all specimens', end='')
             self.specimens = new_specimens

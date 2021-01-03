@@ -1,10 +1,4 @@
-import math
 import os
-import random
-from multiprocessing.dummy import Pool as ThreadPool
-
-import librosa
-import numpy as np
 
 os.environ['KERAS_BACKEND'] = 'plaidml.keras.backend'
 from keras import layers, models

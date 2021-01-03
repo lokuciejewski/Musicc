@@ -1,8 +1,9 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
+import { HttpClientModule } from '@angular/common/http';
 
 import { AppComponent } from './app.component';
-import { MainViewComponent } from './main-view/main-view.component';
+import { MainViewComponent } from './components/main-view/main-view.component';
 
 import { NgxAudioPlayerModule } from 'ngx-audio-player';
 
@@ -28,6 +29,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatSliderModule,
     MatDividerModule,
     MatTooltipModule,
+    HttpClientModule
   ],
   providers: [],
   bootstrap: [AppComponent],
